@@ -1,0 +1,7 @@
+<estudiante>
+    <nombre>#[payload.name]</nombre>
+    <edad>#[payload.age]</edad>
+    <nivel>#[payload.level]</nivel>
+    <genero>#[payload.gender]</genero>
+    <estatus>#[payload.status]</estatus>
+</estudiante>

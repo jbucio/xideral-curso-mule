@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:scripting="http://www.mulesoft.org/schema/mule/scripting" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/scripting http://www.mulesoft.org/schema/mule/scripting/current/mule-scripting.xsd">
+    <http:listener-config name="HTTP_Listener_Configuration" host="0.0.0.0" port="8081" basePath="/exception" doc:name="HTTP Listener Configuration"/>
+    <flow name="9.exceptionFlow">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/{id}" doc:name="HTTP"/>
+        <logger message="#[message]" level="INFO" doc:name="Logger"/>
+        <choice doc:name="Choice">
+            <when expression="#[message.inboundProperties.'http.uri.params'.id == 1]">
+                <scripting:component doc:name="Groovy">
+                    <scripting:script engine="Groovy"><![CDATA[throw new java.lang.RuntimeException("Error en proceso.... ")]]></scripting:script>
+                </scripting:component>
+            </when>
+            <when expression="#[message.inboundProperties.'http.uri.params'.id == 2]">
+                <scripting:component doc:name="Groovy">
+                    <scripting:script engine="Groovy"><![CDATA[throw new java.lang.ClassNotFoundException("Clase no encontrada....")]]></scripting:script>
+                </scripting:component>
+            </when>
+            <otherwise>
+                <logger message="#[payload]" level="INFO" doc:name="Logger"/>
+            </otherwise>
+        </choice>
+        <catch-exception-strategy doc:name="Catch Exception Strategy">
+            <logger message="Entrando al Mensaje de Error #[exception.cause]" level="INFO" doc:name="Logger"/>
+        </catch-exception-strategy>
+    </flow>
+    <flow name="Copy_of_9.exceptionFlow">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/choice/{id}" doc:name="Copy_of_HTTP"/>
+        <logger message="#[message]" level="INFO" doc:name="Copy_of_Logger"/>
+        <choice doc:name="Copy_of_Choice">
+            <when expression="#[message.inboundProperties.'http.uri.params'.id == 1]">
+                <scripting:component doc:name="Copy_of_Groovy">
+                    <scripting:script engine="Groovy"><![CDATA[throw new java.lang.RuntimeException("Error en proceso.... ")]]></scripting:script>
+                </scripting:component>
+            </when>
+            <when expression="#[message.inboundProperties.'http.uri.params'.id == 2]">
+                <scripting:component doc:name="Copy_of_Groovy">
+                    <scripting:script engine="Groovy"><![CDATA[throw new java.lang.ClassNotFoundException("Clase no encontrada....")]]></scripting:script>
+                </scripting:component>
+            </when>
+            <otherwise>
+                <logger message="#[payload]" level="INFO" doc:name="Copy_of_Logger"/>
+            </otherwise>
+        </choice>
+        <choice-exception-strategy doc:name="9.exceptionChoice_Exception_Strategy">
+            <catch-exception-strategy when="#[exception.causedBy(java.lang.RuntimeException)]" doc:name="Catch Exception Strategy">
+                <logger message="RuntimeException" level="INFO" doc:name="Logger"/>
+            </catch-exception-strategy>
+            <catch-exception-strategy when="#[exception.causedBy(java.lang.ClassNotFoundException)]" doc:name="Catch Exception Strategy">
+                <logger message="Class Not Found Exception" level="INFO" doc:name="Logger"/>
+            </catch-exception-strategy>
+        </choice-exception-strategy>
+    </flow>
+</mule>

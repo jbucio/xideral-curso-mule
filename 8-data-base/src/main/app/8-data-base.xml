@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:validation="http://www.mulesoft.org/schema/mule/validation" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd
+http://www.mulesoft.org/schema/mule/validation http://www.mulesoft.org/schema/mule/validation/current/mule-validation.xsd">
+    <http:listener-config name="HTTP_Listener_Configuration" host="0.0.0.0" port="8081" doc:name="HTTP Listener Configuration"/>
+    <db:mysql-config name="MySQL_Configuration" url="${db.url}" doc:name="MySQL Configuration"/>
+    <flow name="8-data-baseFlow">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/books" allowedMethods="GET" doc:name="HTTP"/>
+        <db:select config-ref="MySQL_Configuration" doc:name="Database">
+            <db:parameterized-query><![CDATA[SELECT * FROM BOOKS]]></db:parameterized-query>
+        </db:select>
+        <logger message="#[payload.language]" level="INFO" doc:name="Logger"/>
+        <splitter expression="#[payload]" doc:name="Splitter"/>
+        <message-filter onUnaccepted="8-data-baseSub_Flow" doc:name="Message">
+            <expression-filter expression="#[payload.language == &quot;es&quot;]"/>
+        </message-filter>
+        <byte-array-to-string-transformer doc:name="Byte Array to String"/>
+        <logger message="#[message] #[payload] " level="INFO" doc:name="Copy_of_Logger"/>
+        <collection-aggregator failOnTimeout="true" doc:name="Collection Aggregator">
+            <expression-message-info-mapping messageIdExpression="#[message.id]" correlationIdExpression="#[message.correlationId]"/>
+        </collection-aggregator>
+        <logger message="Pasando #[payload]" level="INFO" doc:name="Copy_of_Logger"/>
+        <json:object-to-json-transformer doc:name="Object to JSON"/>
+    </flow>
+    <sub-flow name="8-data-baseSub_Flow">
+        <logger message="#[payload]" level="INFO" doc:name="Logger"/>
+    </sub-flow>
+</mule>

@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:scripting="http://www.mulesoft.org/schema/mule/scripting" xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:mulexml="http://www.mulesoft.org/schema/mule/xml" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/xml http://www.mulesoft.org/schema/mule/xml/current/mule-xml.xsd
+http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd
+http://www.mulesoft.org/schema/mule/scripting http://www.mulesoft.org/schema/mule/scripting/current/mule-scripting.xsd">
+    <spring:beans>
+    <spring:bean id="util" class="com.demo.util.Util"/>
+    </spring:beans>
+    <http:listener-config name="HTTP_Listener_Configuration" host="0.0.0.0" port="8081" basePath="/students" doc:name="HTTP Listener Configuration"/>
+    <flow name="5-custom-objectFlow-variables">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/variables" doc:name="HTTP" allowedMethods="POST"/>
+        <mulexml:dom-to-xml-transformer doc:name="DOM to XML"/>
+        <set-variable variableName="name" value="#[xpath3('//student/name',payload,'STRING')]" doc:name="Variable - name"/>
+        <set-variable variableName="age" value="#[xpath3('//student/age',payload,'STRING')]" doc:name="Variable - age"/>
+        <set-variable variableName="level" value="#[xpath3('//student/level',payload,'STRING')]" doc:name="Variable - level"/>
+        <set-variable variableName="gender" value="#[xpath3('//student/gender',payload,'STRING')]" doc:name="Variable - gender"/>
+        <set-variable variableName="status" value="#[xpath3('//student/status',payload,'STRING')]" doc:name="Variable - status"/>
+        <component doc:name="Java">
+            <singleton-object class="com.demo.transform.CreateStudentFromVariblesTransform"/>
+        </component>
+        <json:object-to-json-transformer doc:name="Object to JSON"/>
+        <logger message="#[message]" level="INFO" doc:name="Logger"/>
+    </flow>
+    <flow name="5-custom-objectFlow-xml">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/" allowedMethods="POST" doc:name="HTTP"/>
+        <mulexml:xml-to-object-transformer driverClass="com.thoughtworks.xstream.io.xml.Xpp3Driver" doc:name="XML to Object">
+            <mulexml:alias name="student" class="com.demo.pojo.Student"/>
+        </mulexml:xml-to-object-transformer>
+        <logger message="#[message]" level="INFO" doc:name="Logger"/>
+        <json:object-to-json-transformer doc:name="Object to JSON" mimeType="application/json"/>
+    </flow>
+    <flow name="5-custom-objectFlow-json">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/json" allowedMethods="POST" doc:name="HTTP"/>
+        <json:json-to-object-transformer returnClass="com.demo.pojo.Student" doc:name="JSON to Object"/>
+        <logger message="#[message]" level="INFO" doc:name="Logger"/>
+        <message-properties-transformer mimeType="application/xml" doc:name="Message Properties"/>
+        <set-property propertyName="#['Content-Type']" value="#['application/xml']" doc:name="Property"/>
+        <parse-template location="C:\Users\juanb\AnypointStudio\workspace\5-custom-object\src\main\resources\student-template.xml" doc:name="Parse Template"/>
+    </flow>
+    <flow name="5-custom-objectFlow-modify">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/modify" allowedMethods="POST" doc:name="HTTP"/>
+        <json:json-to-object-transformer returnClass="com.demo.pojo.Student" doc:name="JSON to Object"/>
+        <logger message="#[payload]" level="INFO" doc:name="Logger"/>
+        <scripting:component doc:name="Groovy">
+            <scripting:script engine="Groovy"><![CDATA[if(payload.gender == 'Female'){
+payload.gender = 'F'
+}else {
+payload.gender = 'M'
+}
+
+payload]]></scripting:script>
+        </scripting:component>
+        <logger message="#[payload]" level="INFO" doc:name="Logger"/>
+        <message-properties-transformer mimeType="application/xml" doc:name="Message Properties"/>
+        <set-property propertyName="#['Content-Type']" value="#['application/xml']" doc:name="Property"/>
+        <parse-template location="C:\Users\juanb\AnypointStudio\workspace\5-custom-object\src\main\resources\student-template.xml" doc:name="Parse Template"/>
+    </flow>
+    <flow name="5-custom-objectFlow-modify-javamethod">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/modify/java" allowedMethods="POST" doc:name="HTTP"/>
+        <json:json-to-object-transformer returnClass="com.demo.pojo.Student" doc:name="JSON to Object"/>
+        <logger message="#[payload]" level="INFO" doc:name="Logger"/>
+        <invoke object-ref="util" method="changeValues" doc:name="Invoke" methodArgumentTypes="com.demo.pojo.Student" methodArguments="#[payload]"/>
+        <logger message="#[payload]" level="INFO" doc:name="Logger"/>
+        <message-properties-transformer mimeType="application/xml" doc:name="Message Properties"/>
+        <set-property propertyName="#['Content-Type']" value="#['application/xml']" doc:name="Property"/>
+        <parse-template location="C:\Users\juanb\AnypointStudio\workspace\5-custom-object\src\main\resources\student-template.xml" doc:name="Parse Template"/>
+    </flow>
+</mule>

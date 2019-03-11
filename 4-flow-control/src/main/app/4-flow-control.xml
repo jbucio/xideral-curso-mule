@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:vm="http://www.mulesoft.org/schema/mule/vm" xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:json="http://www.mulesoft.org/schema/mule/json"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:mulexml="http://www.mulesoft.org/schema/mule/xml"
+	xmlns:scripting="http://www.mulesoft.org/schema/mule/scripting" xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/xml http://www.mulesoft.org/schema/mule/xml/current/mule-xml.xsd
+http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd
+http://www.mulesoft.org/schema/mule/scripting http://www.mulesoft.org/schema/mule/scripting/current/mule-scripting.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/vm http://www.mulesoft.org/schema/mule/vm/current/mule-vm.xsd">
+	<http:listener-config name="HTTP_Listener_Configuration"
+		host="0.0.0.0" port="8081" basePath="/flow-control" doc:name="HTTP Listener Configuration" />
+	<flow name="4-flow-controlFlow">
+        <file:inbound-endpoint path="src/test/resources/input" moveToPattern="#[message.inboundProperties.originalFilename].backup" responseTimeout="10000" doc:name="File" moveToDirectory="src/test/resources/backup">
+            <file:filename-regex-filter pattern=".*txt" caseSensitive="true"/>
+        </file:inbound-endpoint>
+        <file:file-to-byte-array-transformer doc:name="File to Byte Array"/>
+		<splitter expression="#[xpath3('//*/Employee',payload,'NODESET')]" doc:name="Splitter" />
+        <mulexml:dom-to-xml-transformer doc:name="DOM to XML"/>
+		<logger message="Splitter :: #[payload]" level="INFO" doc:name="Logger" />
+        <file:outbound-endpoint path="src/test/resources/output" responseTimeout="10000" doc:name="File" outputPattern="empleado#[xpath3('//Employee/text()',payload,'NODESET')].txt"/>
+	</flow>
+    <flow name="Copy_of_4-flow-controlFlow">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/employees" doc:name="HTTP"/>
+        <byte-array-to-string-transformer doc:name="Byte Array to String"/>
+        <json:object-to-json-transformer doc:name="Object to JSON"/>
+        <json:json-to-object-transformer returnClass="java.util.HashMap[]" doc:name="JSON to Object"/>
+        <foreach doc:name="For Each">
+            <vm:outbound-endpoint exchange-pattern="one-way" path="empleado" doc:name="VM"/>
+        </foreach>
+        <set-payload value="#['succes']" doc:name="Set Payload"/>
+    </flow>
+    <flow name="4-flow-controlFlow1">
+        <vm:inbound-endpoint exchange-pattern="one-way" path="empleado" doc:name="VM"/>
+        <choice doc:name="Choice">
+            <when expression="#[payload.salary &gt; 200001]">
+                <scripting:component doc:name="Groovy">
+                    <scripting:script engine="Groovy"><![CDATA[long sal = payload.salary
+sal += 1
+
+payload.salary = sal
+
+payload]]></scripting:script>
+                </scripting:component>
+            </when>
+            <otherwise>
+                <logger message="Sueldo sin modificacion" level="INFO" doc:name="Copy_of_Logger"/>
+            </otherwise>
+        </choice>
+        <logger message="Mensaje #[payload]" level="INFO" doc:name="Logger"/>
+    </flow>
+</mule>

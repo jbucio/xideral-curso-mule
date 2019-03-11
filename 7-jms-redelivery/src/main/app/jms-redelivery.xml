@@ -1,0 +1,64 @@
+<mule xmlns:scripting="http://www.mulesoft.org/schema/mule/scripting"
+    xmlns:jms="http://www.mulesoft.org/schema/mule/jms" xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata"
+    xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+    xmlns:spring="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/jms http://www.mulesoft.org/schema/mule/jms/current/mule-jms.xsd
+http://www.mulesoft.org/schema/mule/scripting http://www.mulesoft.org/schema/mule/scripting/current/mule-scripting.xsd">
+
+    <spring:beans>
+        <spring:bean name="redeliveryPolicy" class="org.apache.activemq.RedeliveryPolicy">
+            <spring:property name="maximumRedeliveries" value="0" />
+        </spring:bean>
+
+        <spring:bean name="cf"
+            class="org.apache.activemq.ActiveMQConnectionFactory">
+            <spring:property name="brokerURL" value="tcp://192.168.99.100:61616" />
+            <spring:property name="userName" value="admin" />
+            <spring:property name="password" value="admin" />
+            <spring:property name="redeliveryPolicy" ref="redeliveryPolicy" />
+        </spring:bean>
+    </spring:beans>
+
+    <jms:activemq-connector name="Active_MQ"
+        specification="1.1" brokerURL="tcp://192.168.99.100:61616"
+        validateConnections="true" doc:name="Active MQ" numberOfConsumers="1"
+        maxRedelivery="-1" connectionFactory-ref="cf" password="admin" username="admin"/>
+
+    <flow name="jms-redelivery">
+        <jms:inbound-endpoint queue="IN" connector-ref="Active_MQ"
+            doc:name="JMS">
+            <jms:transaction action="ALWAYS_BEGIN" />
+        </jms:inbound-endpoint>
+        <set-property propertyName="delivery"
+            value="#[message.inboundProperties['delivery'] or 1]" doc:name="Property" />
+
+        <scripting:component doc:name="Throw Error">
+            <scripting:script engine="Groovy"><![CDATA[throw new java.lang.RuntimeException("Error en proceso.... ")]]></scripting:script>
+        </scripting:component>
+
+        <choice-exception-strategy doc:name="Choice Exception Strategy">
+            <catch-exception-strategy doc:name="Catch Exception Strategy"
+                when="#[message.outboundProperties['delivery'] &lt; 5]">
+                <logger level="ERROR"
+                    message="Reintentando una vez mas de :: #[message.outboundProperties['delivery']]"
+                    doc:name="Logger" />
+
+                <set-property propertyName="AMQ_SCHEDULED_DELAY" value="10000"
+                    doc:name="Property" />
+                <set-property propertyName="delivery"
+                    value="#[message.outboundProperties['delivery'] + 1]" doc:name="Property" />
+                <jms:outbound-endpoint queue="IN"
+                    connector-ref="Active_MQ" doc:name="JMS">
+                    <jms:transaction action="ALWAYS_JOIN" />
+                </jms:outbound-endpoint>
+
+            </catch-exception-strategy>
+
+            <rollback-exception-strategy doc:name="Rollback Exception Strategy">
+                <logger level="ERROR" message="Finalizaron los Reintentos" doc:name="Logger" />
+            </rollback-exception-strategy>
+        </choice-exception-strategy>
+    </flow>
+</mule>
